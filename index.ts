@@ -1,8 +1,7 @@
-import { registerRootComponent } from 'expo';
+/**
+ * Legacy entry stub. Qitlo Mobile uses expo-router; see package.json's
+ * "main" field ("expo-router/entry") and the app/ directory. This file is
+ * kept so any tooling that still references it doesn't error.
+ */
 
-import App from './App';
-
-// registerRootComponent calls AppRegistry.registerComponent('main', () => App);
-// It also ensures that whether you load the app in Expo Go or in a native build,
-// the environment is set up appropriately
-registerRootComponent(App);
+import "expo-router/entry";
