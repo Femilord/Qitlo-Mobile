@@ -167,7 +167,7 @@ export default function RootLayout() {
         <AvatarProvider>
           <AuthGate />
           <RootStack />
-          <StatusBar style="light" />
+          <StatusBar style="auto" />
         </AvatarProvider>
       </AppStateProvider>
     </SafeAreaProvider>
