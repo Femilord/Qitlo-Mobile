@@ -144,43 +144,14 @@ export default function DashboardScreen() {
     });
   }, [user, data, limitEval, updateBlob]);
 
-  if (!data || !impact || !user) {
-    return (
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.center}>
-          <ActivityIndicator color={colors.accent} />
-          <Text style={styles.dim}>Loading…</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  // Apply display toggles. These don't change the underlying math — they
-  // just remove rows from the displayed total, matching the webapp's
-  // "comparison view" semantics.
-  const displayedTotal =
-    impact.totalTax -
-    (includeFederal ? 0 : impact.federalTax) -
-    (includeSe ? 0 : impact.seTax);
-  const displayedQuarterly = displayedTotal / 4;
-  const effectiveRate = impact.grossIncome > 0 ? displayedTotal / impact.grossIncome : 0;
-
-  const config = getStateConfig(data.taxProfile.state);
-  const filingLabel = filingStatusLabel(data.taxProfile.filingStatus);
-  const recent = data.entries.slice(-5).reverse();
-
-  function openEntryEditor() {
-    router.push("/entry");
-  }
-
-  function openJournal() {
-    router.push("/journal");
-  }
-
   // Scroll-aware brand logo. It's visible at the top and whenever the user
   // scrolls back up toward the top; it slides up + fades out as soon as they
   // scroll down into the content. The bell + avatar stay pinned. The refs keep
   // the scroll handler cheap — it never triggers a React re-render.
+  //
+  // NOTE: these hooks MUST be declared before the early `return` below, or the
+  // number of hooks called varies between renders ("Rendered more hooks than
+  // during the previous render"). All hooks live above every conditional return.
   const logoVisible = useRef(new Animated.Value(1)).current;
   const lastScrollY = useRef(0);
   const logoShown = useRef(true);
@@ -218,6 +189,39 @@ export default function DashboardScreen() {
       },
     ],
   };
+
+  if (!data || !impact || !user) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.center}>
+          <ActivityIndicator color={colors.accent} />
+          <Text style={styles.dim}>Loading…</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Apply display toggles. These don't change the underlying math — they
+  // just remove rows from the displayed total, matching the webapp's
+  // "comparison view" semantics.
+  const displayedTotal =
+    impact.totalTax -
+    (includeFederal ? 0 : impact.federalTax) -
+    (includeSe ? 0 : impact.seTax);
+  const displayedQuarterly = displayedTotal / 4;
+  const effectiveRate = impact.grossIncome > 0 ? displayedTotal / impact.grossIncome : 0;
+
+  const config = getStateConfig(data.taxProfile.state);
+  const filingLabel = filingStatusLabel(data.taxProfile.filingStatus);
+  const recent = data.entries.slice(-5).reverse();
+
+  function openEntryEditor() {
+    router.push("/entry");
+  }
+
+  function openJournal() {
+    router.push("/journal");
+  }
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>

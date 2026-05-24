@@ -15,7 +15,7 @@
  * server-stored auth hash (which is derived from email).
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -25,6 +25,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
@@ -37,6 +38,7 @@ import * as Sharing from "expo-sharing";
 
 import { useAppState } from "../src/lib/appState";
 import { encryptJson } from "../src/lib/crypto";
+import { getBiometricSupport, isBiometricEnabled } from "../src/lib/biometric";
 import { colors, radii, spacing } from "../src/lib/theme";
 
 /** Mirror of the webapp's Backup / EncryptedBackup format so files
@@ -50,11 +52,47 @@ type EncryptedBackup = {
 
 export default function AccountScreen() {
   const router = useRouter();
-  const { user, blob, signOut } = useAppState();
+  const { user, blob, signOut, enableBiometricUnlock, disableBiometricUnlock } =
+    useAppState();
 
   const [exportPassphrase, setExportPassphrase] = useState("");
   const [exportOpen, setExportOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+
+  // Biometric unlock toggle state. Loaded from the device on mount.
+  const [bioSupport, setBioSupport] = useState({ available: false, label: "Biometrics" });
+  const [bioEnabled, setBioEnabled] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const support = await getBiometricSupport();
+      const enabled = await isBiometricEnabled();
+      if (cancelled) return;
+      setBioSupport(support);
+      setBioEnabled(enabled);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function onToggleBiometric(next: boolean) {
+    if (next) {
+      const ok = await enableBiometricUnlock();
+      if (ok) {
+        setBioEnabled(true);
+      } else {
+        Alert.alert(
+          "Couldn't enable",
+          `${bioSupport.label} authentication was canceled or isn't set up on this device.`,
+        );
+      }
+    } else {
+      await disableBiometricUnlock();
+      setBioEnabled(false);
+    }
+  }
 
   // Display name comes from the webapp's user object stored in passthrough.
   const passUser = (blob?.data.passthrough.user as { name?: string } | undefined) ?? undefined;
@@ -181,6 +219,29 @@ export default function AccountScreen() {
             <Text style={styles.actionBtnText}>Export encrypted backup</Text>
           </Pressable>
         </View>
+
+        {/* Security — biometric unlock (only when the device supports it) */}
+        {bioSupport.available && (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Security</Text>
+            <View style={styles.bioRow}>
+              <View style={styles.bioText}>
+                <Text style={styles.bioLabel}>Unlock with {bioSupport.label}</Text>
+                <Text style={styles.helperText}>
+                  Skip typing your password on this device. Your key is stored in
+                  the secure keychain and released only after a {bioSupport.label}{" "}
+                  check. Turn off any time; signing out clears it.
+                </Text>
+              </View>
+              <Switch
+                value={bioEnabled}
+                onValueChange={onToggleBiometric}
+                trackColor={{ false: colors.border, true: colors.accent }}
+                thumbColor={colors.textPrimary}
+              />
+            </View>
+          </View>
+        )}
 
         {/* App info */}
         <View style={styles.card}>
@@ -326,6 +387,19 @@ const styles = StyleSheet.create({
   rowSub: { color: colors.textDim, fontSize: 11, marginTop: 2 },
 
   helperText: { color: colors.textMuted, fontSize: 12, lineHeight: 17, marginBottom: spacing.md },
+
+  bioRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  bioText: { flex: 1 },
+  bioLabel: {
+    color: colors.textPrimary,
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 4,
+  },
 
   actionBtn: {
     flexDirection: "row",

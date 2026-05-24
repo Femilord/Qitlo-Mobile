@@ -38,6 +38,12 @@
         {
           "photosPermission": "Qitlo uses your photos so you can set a profile picture."
         }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Qitlo uses Face ID to unlock your encrypted data on this device."
+        }
       ]
     ],
     "experiments": {

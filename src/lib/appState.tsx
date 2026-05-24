@@ -25,9 +25,16 @@ import {
   signupUser,
   unlockSession,
   getEncryptionKey,
+  setEncryptionKey,
   type AuthError,
   type User,
 } from "./auth";
+import {
+  disableBiometric,
+  enableBiometric,
+  promptBiometric,
+  readStoredKey,
+} from "./biometric";
 import {
   pullBlob,
   pushBlob,
@@ -220,6 +227,12 @@ type AppStateValue = {
   signIn: (args: { email: string; password: string }) => Promise<AuthError | null>;
   signUp: (args: { email: string; password: string }) => Promise<AuthError | null>;
   unlock: (password: string) => Promise<AuthError | null>;
+  /** Unlock using stored biometrics instead of the password. */
+  unlockWithBiometric: () => Promise<AuthError | null>;
+  /** Opt in to biometric unlock (stores the in-memory key). Returns success. */
+  enableBiometricUnlock: () => Promise<boolean>;
+  /** Opt out of biometric unlock (wipes the stored key). */
+  disableBiometricUnlock: () => Promise<void>;
   signOut: () => Promise<void>;
   updateBlob: (next: AppBlob) => Promise<void>;
   refresh: () => Promise<void>;
@@ -335,9 +348,44 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     [user, pullFromServer],
   );
 
+  /**
+   * Unlock with biometrics. Gates on an OS Face ID / Touch ID prompt, then
+   * loads the key stored at opt-in time and pulls the latest blob — skipping
+   * password entry. Returns an error (UI stays on /unlock) if the user cancels
+   * or no stored key is found.
+   */
+  const unlockWithBiometric = useCallback(async (): Promise<AuthError | null> => {
+    if (!user) return { message: "No session to unlock." };
+    const ok = await promptBiometric("Unlock Qitlo");
+    if (!ok) return { message: "Authentication canceled." };
+    const key = await readStoredKey();
+    if (!key) {
+      return { message: "No saved key on this device. Use your password." };
+    }
+    setEncryptionKey(key);
+    setStatus("unlocked");
+    await pullFromServer();
+    return null;
+  }, [user, pullFromServer]);
+
+  /** Opt in: confirm with a biometric prompt, then store the in-memory key. */
+  const enableBiometricUnlock = useCallback(async (): Promise<boolean> => {
+    const key = getEncryptionKey();
+    if (!key) return false; // can only enable while unlocked
+    const ok = await promptBiometric("Confirm to enable biometric unlock");
+    if (!ok) return false;
+    return enableBiometric(key);
+  }, []);
+
+  const disableBiometricUnlock = useCallback(async (): Promise<void> => {
+    await disableBiometric();
+  }, []);
+
   const signOut = useCallback(async () => {
     await logoutUser();
     await clearCachedBlob();
+    // Wipe any stored biometric key so it can't unlock a different account.
+    await disableBiometric();
     setUser(null);
     setBlob(null);
     setSyncStatus({ kind: "idle" });
@@ -459,11 +507,28 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       signIn,
       signUp,
       unlock,
+      unlockWithBiometric,
+      enableBiometricUnlock,
+      disableBiometricUnlock,
       signOut,
       updateBlob,
       refresh,
     }),
-    [status, user, blob, syncStatus, signIn, signUp, unlock, signOut, updateBlob, refresh],
+    [
+      status,
+      user,
+      blob,
+      syncStatus,
+      signIn,
+      signUp,
+      unlock,
+      unlockWithBiometric,
+      enableBiometricUnlock,
+      disableBiometricUnlock,
+      signOut,
+      updateBlob,
+      refresh,
+    ],
   );
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;
