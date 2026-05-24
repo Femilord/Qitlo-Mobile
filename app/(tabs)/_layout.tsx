@@ -49,13 +49,6 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="rules"
-        options={{
-          title: "Tax Rules",
-          tabBarIcon: tabIcon("book-outline"),
-        }}
-      />
-      <Tabs.Screen
         name="debt"
         options={{
           title: "Debt",
@@ -67,6 +60,13 @@ export default function TabsLayout() {
         options={{
           title: "Report",
           tabBarIcon: tabIcon("document-text-outline"),
+        }}
+      />
+      <Tabs.Screen
+        name="rules"
+        options={{
+          title: "Tax Rules",
+          tabBarIcon: tabIcon("book-outline"),
         }}
       />
     </Tabs>

@@ -14,15 +14,18 @@
  * end-to-end as soon as the screen loads.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
   Pressable,
   ScrollView,
   StyleSheet,
   Switch,
   Text,
   View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -46,6 +49,7 @@ import {
 import { useAppState } from "../../src/lib/appState";
 import { syncLimitNotifications } from "../../src/lib/notifications";
 import { AppHeader } from "../../src/components/AppHeader";
+import { QitloLogo } from "../../src/components/QitloLogo";
 import { colors, radii, spacing } from "../../src/lib/theme";
 
 const fmt = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
@@ -173,11 +177,64 @@ export default function DashboardScreen() {
     router.push("/journal");
   }
 
+  // Scroll-aware brand logo. It's visible at the top and whenever the user
+  // scrolls back up toward the top; it slides up + fades out as soon as they
+  // scroll down into the content. The bell + avatar stay pinned. The refs keep
+  // the scroll handler cheap — it never triggers a React re-render.
+  const logoVisible = useRef(new Animated.Value(1)).current;
+  const lastScrollY = useRef(0);
+  const logoShown = useRef(true);
+
+  function setLogoShown(next: boolean) {
+    if (logoShown.current === next) return;
+    logoShown.current = next;
+    Animated.timing(logoVisible, {
+      toValue: next ? 1 : 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  }
+
+  function onDashboardScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
+    const y = e.nativeEvent.contentOffset.y;
+    const dy = y - lastScrollY.current;
+    lastScrollY.current = y;
+    if (y <= 0) {
+      setLogoShown(true); // always reveal at the very top
+      return;
+    }
+    if (dy > 3) setLogoShown(false); // scrolling down into content → hide
+    else if (dy < -3) setLogoShown(true); // scrolling back up → show
+  }
+
+  const logoAnimStyle = {
+    opacity: logoVisible,
+    transform: [
+      {
+        translateY: logoVisible.interpolate({
+          inputRange: [0, 1],
+          outputRange: [-12, 0],
+        }),
+      },
+    ],
+  };
+
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      {/* Top bar: logo left, avatar menu right */}
-      <AppHeader />
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scroll}>
+      {/* Top bar: scroll-aware logo left, pinned bell + avatar right */}
+      <AppHeader
+        left={
+          <Animated.View style={logoAnimStyle} pointerEvents="none">
+            <QitloLogo size="sm" />
+          </Animated.View>
+        }
+      />
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scroll}
+        onScroll={onDashboardScroll}
+        scrollEventThrottle={16}
+      >
         {/* Header */}
         <View style={styles.header}>
           <View>

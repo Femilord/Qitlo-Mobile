@@ -21,7 +21,7 @@
  * The photo itself is managed by the AvatarProvider (src/lib/avatar.tsx).
  */
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import {
   Alert,
   Modal,
@@ -41,7 +41,7 @@ import { useAvatar } from "../lib/avatar";
 import { colors, radii, spacing } from "../lib/theme";
 import { Avatar } from "./Avatar";
 
-export function AppHeader() {
+export function AppHeader({ left }: { left?: ReactNode } = {}) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, blob, signOut } = useAppState();
@@ -105,35 +105,41 @@ export function AppHeader() {
   return (
     <>
       <View style={styles.bar}>
-        <Pressable
-          onPress={() => router.push("/notifications")}
-          hitSlop={10}
-          style={({ pressed }) => [styles.bellBtn, pressed && styles.avatarBtnActive]}
-          accessibilityRole="button"
-          accessibilityLabel={
-            unread > 0 ? `Notifications, ${unread} unread` : "Notifications"
-          }
-        >
-          <Ionicons name="notifications-outline" size={22} color={colors.textSecondary} />
-          {unread > 0 && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{unread > 9 ? "9+" : unread}</Text>
-            </View>
-          )}
-        </Pressable>
-        <Pressable
-          onPress={openMenu}
-          hitSlop={10}
-          style={({ pressed }) => [
-            styles.avatarBtn,
-            (pressed || open) && styles.avatarBtnActive,
-          ]}
-          accessibilityRole="button"
-          accessibilityLabel="Open account menu"
-          accessibilityState={{ expanded: open }}
-        >
-          <Avatar size={32} uri={uri} name={displayName} email={email} />
-        </Pressable>
+        {/* Left slot — e.g. the Dashboard's scroll-aware brand logo. Empty
+            (logo-less) on every other screen. */}
+        <View style={styles.barLeft}>{left}</View>
+        {/* Right group — pinned bell + avatar, shared across all screens. */}
+        <View style={styles.barRight}>
+          <Pressable
+            onPress={() => router.push("/notifications")}
+            hitSlop={10}
+            style={({ pressed }) => [styles.bellBtn, pressed && styles.avatarBtnActive]}
+            accessibilityRole="button"
+            accessibilityLabel={
+              unread > 0 ? `Notifications, ${unread} unread` : "Notifications"
+            }
+          >
+            <Ionicons name="notifications-outline" size={22} color={colors.textSecondary} />
+            {unread > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{unread > 9 ? "9+" : unread}</Text>
+              </View>
+            )}
+          </Pressable>
+          <Pressable
+            onPress={openMenu}
+            hitSlop={10}
+            style={({ pressed }) => [
+              styles.avatarBtn,
+              (pressed || open) && styles.avatarBtnActive,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Open account menu"
+            accessibilityState={{ expanded: open }}
+          >
+            <Avatar size={32} uri={uri} name={displayName} email={email} />
+          </Pressable>
+        </View>
       </View>
 
       <Modal
@@ -239,15 +245,18 @@ const styles = StyleSheet.create({
   bar: {
     flexDirection: "row",
     alignItems: "center",
-    // Bell + avatar sit on the right; no logo in the in-app shell.
-    justifyContent: "flex-end",
-    gap: spacing.xs,
+    // Optional left slot (logo) vs. the pinned bell + avatar group on the right.
+    justifyContent: "space-between",
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.sm,
     paddingBottom: spacing.md,
     // Opaque so scrolling content disappears cleanly beneath the bar.
     backgroundColor: colors.bg,
   },
+  // Keeps the bar height stable even when the left slot is empty or its
+  // contents fade/translate, so the bell + avatar never shift.
+  barLeft: { flexShrink: 1, minHeight: 32, justifyContent: "center" },
+  barRight: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
   bellBtn: {
     padding: 6,
     borderRadius: radii.pill,

@@ -63,12 +63,20 @@ export function QitloIcon({
 }) {
   const px = ICON_SIZE[size];
   const scale = px / 24;
-  const stroke = Math.max(1.6, 1.6 * scale);
+  // Stroke matches the webapp's 1.6 *viewbox-unit* stroke, scaled to size.
+  // (The old `Math.max(1.6, …)` floor made the small size noticeably thicker
+  // than the web glyph, which also shrank the apparent ring.)
+  const stroke = Math.max(1, 1.6 * scale);
 
   // Circle: cx=10, cy=12, r=7 in viewbox units.
   const cx = 10 * scale;
   const cy = 12 * scale;
   const r = 7 * scale;
+  // Draw the ring with its stroke CENTERED on r (like SVG), not inset
+  // border-box. A border-box ring sits at centerline r − stroke/2, i.e. a
+  // smaller ring, which made the fixed-length tail poke out past it. Sizing the
+  // box to 2r + stroke and offsetting by stroke/2 puts the centerline back on r.
+  const ringBox = r * 2 + stroke;
 
   // Slash from (15, 17) to (21, 11). Midpoint = (18, 14). Length = 6√2.
   // Angle in screen coords (Y down) is -45° → up-right.
@@ -81,15 +89,15 @@ export function QitloIcon({
       style={{ width: px, height: px, position: "relative" }}
       accessible={false}
     >
-      {/* Circle */}
+      {/* Circle — stroke centered on r (box = 2r + stroke, offset by stroke/2). */}
       <View
         style={{
           position: "absolute",
-          left: cx - r,
-          top: cy - r,
-          width: r * 2,
-          height: r * 2,
-          borderRadius: r,
+          left: cx - r - stroke / 2,
+          top: cy - r - stroke / 2,
+          width: ringBox,
+          height: ringBox,
+          borderRadius: ringBox / 2,
           borderWidth: stroke,
           borderColor: color,
         }}
